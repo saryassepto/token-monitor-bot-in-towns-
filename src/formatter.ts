@@ -1,6 +1,6 @@
-import type { TokenPair } from './dexscreener';
+import type { TokenData } from './dexscreener';
 
-function formatNumber(num: number): string {
+function formatVolume(num: number): string {
   if (num >= 1_000_000_000) {
     return `$${(num / 1_000_000_000).toFixed(2)}B`;
   }
@@ -13,23 +13,26 @@ function formatNumber(num: number): string {
   return `$${num.toFixed(2)}`;
 }
 
-function formatPrice(price: string): string {
-  const num = parseFloat(price);
-  if (num < 0.0001) {
-    return `$${num.toExponential(2)}`;
+function formatPrice(price: number): string {
+  if (price < 0.0001) {
+    return `$${price.toExponential(2)}`;
   }
-  if (num < 1) {
-    return `$${num.toFixed(6)}`;
+  if (price < 1) {
+    return `$${price.toFixed(6)}`;
   }
-  return `$${num.toFixed(2)}`;
+  if (price < 1000) {
+    return `$${price.toFixed(2)}`;
+  }
+  return `$${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 }
 
 function formatPriceChange(change: number): string {
   const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(2)}%`;
+  const emoji = change >= 0 ? '🟢' : '🔴';
+  return `${emoji} ${sign}${change.toFixed(2)}%`;
 }
 
-export function formatLeaderboard(tokens: TokenPair[]): string {
+export function formatLeaderboard(tokens: TokenData[]): string {
   if (tokens.length === 0) {
     return '❌ No tokens found on Base chain.';
   }
@@ -38,12 +41,13 @@ export function formatLeaderboard(tokens: TokenPair[]): string {
 
   const rows = tokens.map((token, index) => {
     const rank = index + 1;
-    const symbol = token.baseToken.symbol;
+    const name = token.name;
+    const symbol = token.symbol;
     const price = formatPrice(token.priceUsd);
-    const volume = formatNumber(token.volume.h24);
-    const change = formatPriceChange(token.priceChange.h24);
+    const volume = formatVolume(token.volume24h);
+    const change = formatPriceChange(token.priceChange24h);
 
-    return `**${rank}.** ${symbol}\n   💵 ${price} | 📊 ${volume} | ${change}`;
+    return `**${rank}. ${name} (${symbol})**\n   💵 ${price} | 📊 ${volume} | ${change}`;
   });
 
   return header + rows.join('\n\n');
