@@ -37,18 +37,18 @@ async function handleTrendingCommand(
   }
 }
 
-// Register /p command - 24h trending
-bot.onSlashCommand('p', async (handler: BotHandler, { channelId }) => {
+// Register /trending command - 24h trending
+bot.onSlashCommand('trending', async (handler: BotHandler, { channelId }) => {
   await handleTrendingCommand(handler, channelId, '24h');
 });
 
-// Register /p1h command - 1h trending
-bot.onSlashCommand('p1h', async (handler: BotHandler, { channelId }) => {
+// Register /hot command - 1h trending (hottest right now)
+bot.onSlashCommand('hot', async (handler: BotHandler, { channelId }) => {
   await handleTrendingCommand(handler, channelId, '1h');
 });
 
-// Register /p6h command - 6h trending
-bot.onSlashCommand('p6h', async (handler: BotHandler, { channelId }) => {
+// Register /rising command - 6h trending
+bot.onSlashCommand('rising', async (handler: BotHandler, { channelId }) => {
   await handleTrendingCommand(handler, channelId, '6h');
 });
 
@@ -57,11 +57,11 @@ bot.onSlashCommand('help', async (handler: BotHandler, { channelId }) => {
   await handler.sendMessage(
     channelId,
     '**📊 Base Token Tracker Commands**\n\n' +
-      '• `/p` - Top 10 trending tokens (24h)\n' +
-      '• `/p1h` - Top 10 trending tokens (1 hour)\n' +
-      '• `/p6h` - Top 10 trending tokens (6 hours)\n' +
+      '• `/trending` - Top 10 trending tokens (24h volume)\n' +
+      '• `/hot` - Top 10 hottest tokens (1h volume)\n' +
+      '• `/rising` - Top 10 rising tokens (6h volume)\n' +
       '• `/help` - Show this help message\n\n' +
-      '💡 *Contract addresses are included for easy copying!*'
+      '💡 *Contract addresses included for easy copying!*'
   );
 });
 
@@ -70,7 +70,7 @@ bot.onMessage(async (handler: BotHandler, { message, channelId, isMentioned }) =
   if (isMentioned) {
     await handler.sendMessage(
       channelId,
-      'Hey! Use `/p` to see trending Base tokens, or `/help` for all commands! 🚀'
+      'Hey! Try `/trending`, `/hot`, or `/rising` to see Base tokens! 🚀'
     );
   }
 });
