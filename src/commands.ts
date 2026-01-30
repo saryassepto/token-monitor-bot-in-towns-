@@ -1,7 +1,7 @@
 import type { BotCommand } from '@towns-protocol/bot';
 
 const commands = [
-  // Default commands (10 tokens)
+  // List commands
   {
     name: 'trending',
     description: 'Top 10 trending tokens (24h)',
@@ -14,7 +14,16 @@ const commands = [
     name: 'rising',
     description: 'Top 10 rising tokens (6h)',
   },
-  // Extended lists (20 tokens)
+  // Chart commands (with visual cards)
+  {
+    name: 'charts',
+    description: 'Top 5 with token cards (24h)',
+  },
+  {
+    name: 'hotcharts',
+    description: 'Top 5 hot with token cards (1h)',
+  },
+  // Extended lists
   {
     name: 'top20',
     description: 'Top 20 trending tokens (24h)',
@@ -23,7 +32,6 @@ const commands = [
     name: 'hot20',
     description: 'Top 20 hottest tokens (1h)',
   },
-  // Large lists (50 tokens)
   {
     name: 'top50',
     description: 'Top 50 trending tokens (24h)',

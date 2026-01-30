@@ -37,12 +37,42 @@ function formatPriceChange(change: number): string {
 }
 
 function getChartUrl(contractAddress: string): string {
-  // DexScreener chart URL for Base chain
   return `https://dexscreener.com/base/${contractAddress}`;
 }
 
-function getGeckoTerminalUrl(poolAddress: string): string {
-  return `https://www.geckoterminal.com/base/pools/${poolAddress}`;
+// Format single token for chart display
+export function formatSingleToken(
+  token: TokenData,
+  rank: number,
+  timeFrame: TimeFrame
+): string {
+  const symbol = token.symbol;
+  const price = formatPrice(token.priceUsd);
+  
+  let volume: string;
+  let change: string;
+  
+  switch (timeFrame) {
+    case '1h':
+      volume = formatVolume(token.volume1h);
+      change = formatPriceChange(token.priceChange1h);
+      break;
+    case '6h':
+      volume = formatVolume(token.volume6h);
+      change = formatPriceChange(token.priceChange6h);
+      break;
+    case '24h':
+    default:
+      volume = formatVolume(token.volume24h);
+      change = formatPriceChange(token.priceChange24h);
+  }
+
+  const chartUrl = getChartUrl(token.contractAddress);
+
+  return `**#${rank} $${symbol}**\n` +
+         `💵 ${price} | 📊 ${volume} | ${change}\n` +
+         `📋 \`${token.contractAddress}\`\n` +
+         `🔗 [DexScreener](${chartUrl})`;
 }
 
 export function formatLeaderboard(
@@ -62,7 +92,6 @@ export function formatLeaderboard(
 
   const header = `🔥 **Top ${count} Base Tokens (${timeLabels[timeFrame]})**\n\n`;
 
-  // For large lists (20+), use compact format
   const isCompact = count > 10;
 
   const rows = tokens.slice(0, count).map((token, index) => {
@@ -92,12 +121,9 @@ export function formatLeaderboard(
     const chartUrl = getChartUrl(ca);
 
     if (isCompact) {
-      // Compact format for 20+ tokens
       return `**${rank}.** $${symbol} | ${price} | ${volume} | ${change}\n` +
-             `📋 \`${ca}\`\n` +
-             `📈 [Chart](${chartUrl})`;
+             `📋 \`${ca}\` | [Chart](${chartUrl})`;
     } else {
-      // Full format for 10 tokens
       return `**${rank}. $${symbol}**\n` +
              `   💵 ${price} | 📊 ${volume} | ${change}\n` +
              `   📋 \`${ca}\`\n` +
@@ -105,7 +131,7 @@ export function formatLeaderboard(
     }
   });
 
-  const footer = '\n\n💡 *Tap CA to copy • Click chart to view*';
+  const footer = '\n\n💡 *Use `/charts` for visual token cards!*';
 
   return header + rows.join('\n\n') + footer;
 }
