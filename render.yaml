@@ -2,14 +2,12 @@ services:
   - type: web
     name: towns-token-bot
     runtime: node
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: bun install
+    startCommand: bun run start
     envVars:
-      - key: NODE_VERSION
-        value: 20.18.0
       - key: APP_PRIVATE_DATA
         sync: false
       - key: JWT_SECRET
         sync: false
       - key: PORT
-        sync: false
+        value: "5123"
