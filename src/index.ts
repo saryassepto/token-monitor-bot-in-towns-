@@ -17,10 +17,10 @@ const bot = await makeTownsBot(APP_PRIVATE_DATA, JWT_SECRET, {
   commands,
 });
 
-// Register /p command - Get top Base chain tokens
+// Register /p command - Get trending Base chain tokens
 bot.onSlashCommand('p', async (handler: BotHandler, { channelId }) => {
   try {
-    const tokens = await fetchTopBaseTokens(5);
+    const tokens = await fetchTopBaseTokens(10);
     const message = formatLeaderboard(tokens);
     await handler.sendMessage(channelId, message);
   } catch (error) {

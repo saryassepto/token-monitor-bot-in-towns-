@@ -14,8 +14,12 @@ function formatVolume(num: number): string {
 }
 
 function formatPrice(price: number): string {
-  if (price < 0.0001) {
+  if (price === 0) return '$0.00';
+  if (price < 0.00000001) {
     return `$${price.toExponential(2)}`;
+  }
+  if (price < 0.0001) {
+    return `$${price.toFixed(10).replace(/\.?0+$/, '')}`;
   }
   if (price < 1) {
     return `$${price.toFixed(6)}`;
@@ -34,20 +38,19 @@ function formatPriceChange(change: number): string {
 
 export function formatLeaderboard(tokens: TokenData[]): string {
   if (tokens.length === 0) {
-    return '❌ No tokens found on Base chain.';
+    return '❌ No trending tokens found on Base chain.';
   }
 
-  const header = '🏆 **Top 5 Base Chain Tokens by 24h Volume**\n\n';
+  const header = '🔥 **Top Trending Tokens on Base Chain**\n\n';
 
   const rows = tokens.map((token, index) => {
     const rank = index + 1;
-    const name = token.name;
     const symbol = token.symbol;
     const price = formatPrice(token.priceUsd);
     const volume = formatVolume(token.volume24h);
     const change = formatPriceChange(token.priceChange24h);
 
-    return `**${rank}. ${name} (${symbol})**\n   💵 ${price} | 📊 ${volume} | ${change}`;
+    return `**${rank}. $${symbol}**\n   💵 ${price} | 📊 ${volume} | ${change}`;
   });
 
   return header + rows.join('\n\n');

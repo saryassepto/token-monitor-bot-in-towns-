@@ -6,89 +6,85 @@ export interface TokenData {
   priceChange24h: number;
 }
 
-interface DexScreenerPair {
-  chainId: string;
-  baseToken: {
-    address: string;
+interface GeckoTerminalPool {
+  attributes: {
     name: string;
-    symbol: string;
-  };
-  priceUsd: string;
-  volume: {
-    h24: number;
-  };
-  priceChange: {
-    h24: number;
+    base_token_price_usd: string;
+    volume_usd: {
+      h24: string;
+    };
+    price_change_percentage: {
+      h24: string;
+    };
   };
 }
 
-interface DexScreenerResponse {
-  pairs: DexScreenerPair[];
+interface GeckoTerminalResponse {
+  data: GeckoTerminalPool[];
 }
 
-// Popular Base chain token addresses
-const BASE_TOKENS = [
-  '0x4200000000000000000000000000000000000006', // WETH
-  '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
-  '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', // DAI
-  '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', // cbETH
-  '0x0000000000000000000000000000000000000000', // ETH
-  '0x532f27101965dd16442E59d40670FaF5eBB142E4', // BRETT
-  '0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4', // TOSHI
-  '0x9a26F5433671751C3276a065f57e5a02D2817973', // DEGEN
-];
+// GeckoTerminal API - Trending pools on Base chain
+const GECKOTERMINAL_API = 'https://api.geckoterminal.com/api/v2/networks/base/trending_pools';
 
-export async function fetchTopBaseTokens(limit: number = 5): Promise<TokenData[]> {
+export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[]> {
   try {
-    const url = `https://api.dexscreener.com/latest/dex/tokens/${BASE_TOKENS.join(',')}`;
-    
-    const response = await fetch(url, {
+    const response = await fetch(GECKOTERMINAL_API, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'TownsBot/1.0',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`DexScreener API error: ${response.status}`);
+      throw new Error(`GeckoTerminal API error: ${response.status}`);
     }
 
-    const data: DexScreenerResponse = await response.json();
+    const data: GeckoTerminalResponse = await response.json();
 
-    if (!data.pairs || data.pairs.length === 0) {
-      throw new Error('No pairs found');
+    if (!data.data || data.data.length === 0) {
+      throw new Error('No trending pools found');
     }
 
-    // Get unique tokens from Base chain, pick highest volume pair for each
-    const tokenMap = new Map<string, TokenData>();
+    // Parse the pool data and extract token info
+    const seen = new Set<string>();
+    const tokens: TokenData[] = [];
 
-    for (const pair of data.pairs) {
-      if (pair.chainId === 'base' && pair.baseToken && pair.priceUsd) {
-        const symbol = pair.baseToken.symbol;
-        const volume = pair.volume?.h24 || 0;
-        
-        // Only keep the pair with highest volume for each token
-        const existing = tokenMap.get(symbol);
-        if (!existing || volume > existing.volume24h) {
-          tokenMap.set(symbol, {
-            symbol: symbol,
-            name: pair.baseToken.name,
-            priceUsd: parseFloat(pair.priceUsd) || 0,
-            volume24h: volume,
-            priceChange24h: pair.priceChange?.h24 || 0,
-          });
-        }
-      }
+    for (const pool of data.data) {
+      const attr = pool.attributes;
+      
+      // Extract token name from pool name (e.g., "CLAWD / WETH" -> "CLAWD")
+      const poolName = attr.name || '';
+      const parts = poolName.split(' / ');
+      if (parts.length < 2) continue;
+      
+      const tokenName = parts[0].trim();
+      // Remove percentage from name if present (e.g., "CLAWD / WETH 838.861%")
+      const symbol = tokenName.split(' ')[0];
+      
+      // Skip duplicates and stablecoins/wrapped tokens
+      if (seen.has(symbol)) continue;
+      if (['WETH', 'USDC', 'USDT', 'DAI', 'USDbC'].includes(symbol)) continue;
+      
+      seen.add(symbol);
+
+      const priceUsd = parseFloat(attr.base_token_price_usd) || 0;
+      const volume24h = parseFloat(attr.volume_usd?.h24) || 0;
+      const priceChange24h = parseFloat(attr.price_change_percentage?.h24) || 0;
+
+      tokens.push({
+        symbol,
+        name: symbol, // GeckoTerminal doesn't give full name, use symbol
+        priceUsd,
+        volume24h,
+        priceChange24h,
+      });
+
+      if (tokens.length >= limit) break;
     }
 
-    // Sort by volume and return top N
-    return Array.from(tokenMap.values())
-      .filter(t => t.volume24h > 0)
-      .sort((a, b) => b.volume24h - a.volume24h)
-      .slice(0, limit);
+    return tokens;
 
   } catch (error) {
-    console.error('DexScreener fetch error:', error);
+    console.error('GeckoTerminal fetch error:', error);
     throw error;
   }
 }
