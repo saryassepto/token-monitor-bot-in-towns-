@@ -36,6 +36,15 @@ function formatPriceChange(change: number): string {
   return `${emoji}${sign}${change.toFixed(1)}%`;
 }
 
+function getChartUrl(contractAddress: string): string {
+  // DexScreener chart URL for Base chain
+  return `https://dexscreener.com/base/${contractAddress}`;
+}
+
+function getGeckoTerminalUrl(poolAddress: string): string {
+  return `https://www.geckoterminal.com/base/pools/${poolAddress}`;
+}
+
 export function formatLeaderboard(
   tokens: TokenData[],
   timeFrame: TimeFrame = '24h',
@@ -80,17 +89,23 @@ export function formatLeaderboard(
     }
 
     const ca = token.contractAddress;
+    const chartUrl = getChartUrl(ca);
 
     if (isCompact) {
       // Compact format for 20+ tokens
-      return `**${rank}.** $${symbol} | ${price} | ${volume} | ${change}\n\`${ca}\``;
+      return `**${rank}.** $${symbol} | ${price} | ${volume} | ${change}\n` +
+             `📋 \`${ca}\`\n` +
+             `📈 [Chart](${chartUrl})`;
     } else {
       // Full format for 10 tokens
-      return `**${rank}. $${symbol}**\n   💵 ${price} | 📊 ${volume} | ${change}\n   📋 \`${ca}\``;
+      return `**${rank}. $${symbol}**\n` +
+             `   💵 ${price} | 📊 ${volume} | ${change}\n` +
+             `   📋 \`${ca}\`\n` +
+             `   📈 [View Chart](${chartUrl})`;
     }
   });
 
-  const footer = '\n\n💡 *Tap CA to copy*';
+  const footer = '\n\n💡 *Tap CA to copy • Click chart to view*';
 
   return header + rows.join('\n\n') + footer;
 }

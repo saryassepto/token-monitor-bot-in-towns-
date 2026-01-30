@@ -9,11 +9,14 @@ export interface TokenData {
   priceChange6h: number;
   priceChange1h: number;
   contractAddress: string;
+  poolAddress: string;
+  dexId: string;
 }
 
 interface GeckoTerminalPool {
   attributes: {
     name: string;
+    address: string;
     base_token_price_usd: string;
     volume_usd: {
       h1: string;
@@ -32,6 +35,11 @@ interface GeckoTerminalPool {
         id: string;
       };
     };
+    dex: {
+      data: {
+        id: string;
+      };
+    };
   };
 }
 
@@ -40,9 +48,6 @@ interface GeckoTerminalResponse {
 }
 
 export type TimeFrame = '1h' | '6h' | '24h';
-
-// GeckoTerminal API - Trending pools on Base chain
-const GECKOTERMINAL_API = 'https://api.geckoterminal.com/api/v2/networks/base/trending_pools?page=1';
 
 export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[]> {
   try {
@@ -62,14 +67,14 @@ export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[
         if (page === 1) {
           throw new Error(`GeckoTerminal API error: ${response.status}`);
         }
-        break; // Stop if subsequent pages fail
+        break;
       }
 
       const data: GeckoTerminalResponse = await response.json();
       if (data.data && data.data.length > 0) {
         allPools.push(...data.data);
       } else {
-        break; // No more data
+        break;
       }
     }
 
@@ -84,7 +89,7 @@ export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[
     for (const pool of allPools) {
       const attr = pool.attributes;
       
-      // Extract token name from pool name (e.g., "CLAWD / WETH" -> "CLAWD")
+      // Extract token name from pool name
       const poolName = attr.name || '';
       const parts = poolName.split(' / ');
       if (parts.length < 2) continue;
@@ -98,9 +103,11 @@ export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[
       
       seen.add(symbol);
 
-      // Extract contract address from base_token id
+      // Extract contract address and pool address
       const tokenId = pool.relationships?.base_token?.data?.id || '';
       const contractAddress = tokenId.replace('base_', '');
+      const poolAddress = attr.address || '';
+      const dexId = pool.relationships?.dex?.data?.id || '';
 
       const priceUsd = parseFloat(attr.base_token_price_usd) || 0;
       const volume24h = parseFloat(attr.volume_usd?.h24) || 0;
@@ -121,6 +128,8 @@ export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[
         priceChange6h,
         priceChange1h,
         contractAddress,
+        poolAddress,
+        dexId,
       });
 
       if (tokens.length >= limit) break;
