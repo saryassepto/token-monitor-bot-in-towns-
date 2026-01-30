@@ -3,7 +3,15 @@ import type { BotCommand } from '@towns-protocol/bot';
 const commands = [
   {
     name: 'p',
-    description: 'Get top 10 trending tokens on Base chain',
+    description: 'Top 10 trending tokens on Base (24h)',
+  },
+  {
+    name: 'p1h',
+    description: 'Top 10 trending tokens on Base (1 hour)',
+  },
+  {
+    name: 'p6h',
+    description: 'Top 10 trending tokens on Base (6 hours)',
   },
   {
     name: 'help',

@@ -1,6 +1,6 @@
 import { makeTownsBot, type BotHandler } from '@towns-protocol/bot';
 import commands from './commands';
-import { fetchTopBaseTokens } from './dexscreener';
+import { fetchTopBaseTokens, sortByTimeFrame, type TimeFrame } from './dexscreener';
 import { formatLeaderboard } from './formatter';
 
 const APP_PRIVATE_DATA = process.env.APP_PRIVATE_DATA;
@@ -17,11 +17,16 @@ const bot = await makeTownsBot(APP_PRIVATE_DATA, JWT_SECRET, {
   commands,
 });
 
-// Register /p command - Get trending Base chain tokens
-bot.onSlashCommand('p', async (handler: BotHandler, { channelId }) => {
+// Helper function to handle token fetch and response
+async function handleTrendingCommand(
+  handler: BotHandler,
+  channelId: string,
+  timeFrame: TimeFrame
+) {
   try {
     const tokens = await fetchTopBaseTokens(10);
-    const message = formatLeaderboard(tokens);
+    const sorted = sortByTimeFrame(tokens, timeFrame);
+    const message = formatLeaderboard(sorted, timeFrame);
     await handler.sendMessage(channelId, message);
   } catch (error) {
     console.error('Error fetching tokens:', error);
@@ -30,22 +35,43 @@ bot.onSlashCommand('p', async (handler: BotHandler, { channelId }) => {
       '❌ Failed to fetch token data. Please try again later.'
     );
   }
+}
+
+// Register /p command - 24h trending
+bot.onSlashCommand('p', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '24h');
+});
+
+// Register /p1h command - 1h trending
+bot.onSlashCommand('p1h', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '1h');
+});
+
+// Register /p6h command - 6h trending
+bot.onSlashCommand('p6h', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '6h');
 });
 
 // Register /help command
 bot.onSlashCommand('help', async (handler: BotHandler, { channelId }) => {
   await handler.sendMessage(
     channelId,
-    '**Available Commands:**\n\n' +
-      '• `/p` - Get top 5 Base chain tokens by 24h volume\n' +
-      '• `/help` - Show this help message\n'
+    '**📊 Base Token Tracker Commands**\n\n' +
+      '• `/p` - Top 10 trending tokens (24h)\n' +
+      '• `/p1h` - Top 10 trending tokens (1 hour)\n' +
+      '• `/p6h` - Top 10 trending tokens (6 hours)\n' +
+      '• `/help` - Show this help message\n\n' +
+      '💡 *Contract addresses are included for easy copying!*'
   );
 });
 
 // Respond to mentions
 bot.onMessage(async (handler: BotHandler, { message, channelId, isMentioned }) => {
   if (isMentioned) {
-    await handler.sendMessage(channelId, 'Hey! Use `/p` to see the top Base chain tokens! 🚀');
+    await handler.sendMessage(
+      channelId,
+      'Hey! Use `/p` to see trending Base tokens, or `/help` for all commands! 🚀'
+    );
   }
 });
 
