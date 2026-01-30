@@ -21,12 +21,13 @@ const bot = await makeTownsBot(APP_PRIVATE_DATA, JWT_SECRET, {
 async function handleTrendingCommand(
   handler: BotHandler,
   channelId: string,
-  timeFrame: TimeFrame
+  timeFrame: TimeFrame,
+  count: number
 ) {
   try {
-    const tokens = await fetchTopBaseTokens(10);
+    const tokens = await fetchTopBaseTokens(count);
     const sorted = sortByTimeFrame(tokens, timeFrame);
-    const message = formatLeaderboard(sorted, timeFrame);
+    const message = formatLeaderboard(sorted, timeFrame, count);
     await handler.sendMessage(channelId, message);
   } catch (error) {
     console.error('Error fetching tokens:', error);
@@ -37,31 +38,64 @@ async function handleTrendingCommand(
   }
 }
 
-// Register /trending command - 24h trending
+// === 10 TOKEN COMMANDS ===
+
+// /trending - 24h, 10 tokens
 bot.onSlashCommand('trending', async (handler: BotHandler, { channelId }) => {
-  await handleTrendingCommand(handler, channelId, '24h');
+  await handleTrendingCommand(handler, channelId, '24h', 10);
 });
 
-// Register /hot command - 1h trending (hottest right now)
+// /hot - 1h, 10 tokens
 bot.onSlashCommand('hot', async (handler: BotHandler, { channelId }) => {
-  await handleTrendingCommand(handler, channelId, '1h');
+  await handleTrendingCommand(handler, channelId, '1h', 10);
 });
 
-// Register /rising command - 6h trending
+// /rising - 6h, 10 tokens
 bot.onSlashCommand('rising', async (handler: BotHandler, { channelId }) => {
-  await handleTrendingCommand(handler, channelId, '6h');
+  await handleTrendingCommand(handler, channelId, '6h', 10);
 });
 
-// Register /help command
+// === 20 TOKEN COMMANDS ===
+
+// /top20 - 24h, 20 tokens
+bot.onSlashCommand('top20', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '24h', 20);
+});
+
+// /hot20 - 1h, 20 tokens
+bot.onSlashCommand('hot20', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '1h', 20);
+});
+
+// === 50 TOKEN COMMANDS ===
+
+// /top50 - 24h, 50 tokens
+bot.onSlashCommand('top50', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '24h', 50);
+});
+
+// /hot50 - 1h, 50 tokens
+bot.onSlashCommand('hot50', async (handler: BotHandler, { channelId }) => {
+  await handleTrendingCommand(handler, channelId, '1h', 50);
+});
+
+// === HELP ===
+
 bot.onSlashCommand('help', async (handler: BotHandler, { channelId }) => {
   await handler.sendMessage(
     channelId,
     '**📊 Base Token Tracker Commands**\n\n' +
-      '• `/trending` - Top 10 trending tokens (24h volume)\n' +
-      '• `/hot` - Top 10 hottest tokens (1h volume)\n' +
-      '• `/rising` - Top 10 rising tokens (6h volume)\n' +
-      '• `/help` - Show this help message\n\n' +
-      '💡 *Contract addresses included for easy copying!*'
+      '**Top 10 Tokens:**\n' +
+      '• `/trending` - 24h volume\n' +
+      '• `/hot` - 1h volume (hottest now)\n' +
+      '• `/rising` - 6h volume\n\n' +
+      '**Top 20 Tokens:**\n' +
+      '• `/top20` - 24h volume\n' +
+      '• `/hot20` - 1h volume\n\n' +
+      '**Top 50 Tokens:**\n' +
+      '• `/top50` - 24h volume\n' +
+      '• `/hot50` - 1h volume\n\n' +
+      '💡 *All commands include contract addresses for copying!*'
   );
 });
 
@@ -70,7 +104,7 @@ bot.onMessage(async (handler: BotHandler, { message, channelId, isMentioned }) =
   if (isMentioned) {
     await handler.sendMessage(
       channelId,
-      'Hey! Try `/trending`, `/hot`, or `/rising` to see Base tokens! 🚀'
+      'Hey! Try `/trending`, `/hot`, `/top20`, `/top50` or `/help` for all commands! 🚀'
     );
   }
 });

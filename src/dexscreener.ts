@@ -42,23 +42,38 @@ interface GeckoTerminalResponse {
 export type TimeFrame = '1h' | '6h' | '24h';
 
 // GeckoTerminal API - Trending pools on Base chain
-const GECKOTERMINAL_API = 'https://api.geckoterminal.com/api/v2/networks/base/trending_pools';
+const GECKOTERMINAL_API = 'https://api.geckoterminal.com/api/v2/networks/base/trending_pools?page=1';
 
 export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[]> {
   try {
-    const response = await fetch(GECKOTERMINAL_API, {
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    // Fetch multiple pages if needed for larger requests
+    const pages = Math.ceil(limit / 20);
+    const allPools: GeckoTerminalPool[] = [];
 
-    if (!response.ok) {
-      throw new Error(`GeckoTerminal API error: ${response.status}`);
+    for (let page = 1; page <= pages; page++) {
+      const url = `https://api.geckoterminal.com/api/v2/networks/base/trending_pools?page=${page}`;
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (page === 1) {
+          throw new Error(`GeckoTerminal API error: ${response.status}`);
+        }
+        break; // Stop if subsequent pages fail
+      }
+
+      const data: GeckoTerminalResponse = await response.json();
+      if (data.data && data.data.length > 0) {
+        allPools.push(...data.data);
+      } else {
+        break; // No more data
+      }
     }
 
-    const data: GeckoTerminalResponse = await response.json();
-
-    if (!data.data || data.data.length === 0) {
+    if (allPools.length === 0) {
       throw new Error('No trending pools found');
     }
 
@@ -66,7 +81,7 @@ export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[
     const seen = new Set<string>();
     const tokens: TokenData[] = [];
 
-    for (const pool of data.data) {
+    for (const pool of allPools) {
       const attr = pool.attributes;
       
       // Extract token name from pool name (e.g., "CLAWD / WETH" -> "CLAWD")
@@ -79,11 +94,11 @@ export async function fetchTopBaseTokens(limit: number = 10): Promise<TokenData[
       
       // Skip duplicates and stablecoins/wrapped tokens
       if (seen.has(symbol)) continue;
-      if (['WETH', 'USDC', 'USDT', 'DAI', 'USDbC'].includes(symbol)) continue;
+      if (['WETH', 'USDC', 'USDT', 'DAI', 'USDbC', 'cbETH'].includes(symbol)) continue;
       
       seen.add(symbol);
 
-      // Extract contract address from base_token id (e.g., "base_0x1234..." -> "0x1234...")
+      // Extract contract address from base_token id
       const tokenId = pool.relationships?.base_token?.data?.id || '';
       const contractAddress = tokenId.replace('base_', '');
 

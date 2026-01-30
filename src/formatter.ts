@@ -33,33 +33,34 @@ function formatPrice(price: number): string {
 function formatPriceChange(change: number): string {
   const sign = change >= 0 ? '+' : '';
   const emoji = change >= 0 ? '🟢' : '🔴';
-  return `${emoji} ${sign}${change.toFixed(2)}%`;
+  return `${emoji}${sign}${change.toFixed(1)}%`;
 }
 
-function shortenAddress(address: string): string {
-  if (!address || address.length < 10) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-export function formatLeaderboard(tokens: TokenData[], timeFrame: TimeFrame = '24h'): string {
+export function formatLeaderboard(
+  tokens: TokenData[],
+  timeFrame: TimeFrame = '24h',
+  count: number = 10
+): string {
   if (tokens.length === 0) {
     return '❌ No trending tokens found on Base chain.';
   }
 
   const timeLabels: Record<TimeFrame, string> = {
-    '1h': '1 Hour',
-    '6h': '6 Hours',
-    '24h': '24 Hours',
+    '1h': '1H',
+    '6h': '6H',
+    '24h': '24H',
   };
 
-  const header = `🔥 **Top Trending Base Tokens (${timeLabels[timeFrame]})**\n\n`;
+  const header = `🔥 **Top ${count} Base Tokens (${timeLabels[timeFrame]})**\n\n`;
 
-  const rows = tokens.map((token, index) => {
+  // For large lists (20+), use compact format
+  const isCompact = count > 10;
+
+  const rows = tokens.slice(0, count).map((token, index) => {
     const rank = index + 1;
     const symbol = token.symbol;
     const price = formatPrice(token.priceUsd);
     
-    // Select volume and change based on timeframe
     let volume: string;
     let change: string;
     
@@ -79,11 +80,14 @@ export function formatLeaderboard(tokens: TokenData[], timeFrame: TimeFrame = '2
     }
 
     const ca = token.contractAddress;
-    const shortCA = shortenAddress(ca);
 
-    return `**${rank}. $${symbol}**\n` +
-           `   💵 ${price} | 📊 ${volume} | ${change}\n` +
-           `   📋 \`${ca}\``;
+    if (isCompact) {
+      // Compact format for 20+ tokens
+      return `**${rank}.** $${symbol} | ${price} | ${volume} | ${change}\n\`${ca}\``;
+    } else {
+      // Full format for 10 tokens
+      return `**${rank}. $${symbol}**\n   💵 ${price} | 📊 ${volume} | ${change}\n   📋 \`${ca}\``;
+    }
   });
 
   const footer = '\n\n💡 *Tap CA to copy*';
