@@ -16,10 +16,16 @@ if (!APP_PRIVATE_DATA || !JWT_SECRET) {
   process.exit(1);
 }
 
-// Keep process alive on unhandled rejections (Render may SIGTERM if process exits)
+// Prevent process exit from unhandled errors (log so we see cause in Render logs)
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('[unhandledRejection]', reason, promise);
 });
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+  process.exit(1); // exit so Render restarts us and we get a clean state
+});
+// Keep event loop active (some runtimes can exit when "idle")
+setInterval(() => {}, 60_000);
 
 // Initialize bot
 const bot = await makeTownsBot(APP_PRIVATE_DATA, JWT_SECRET, {
