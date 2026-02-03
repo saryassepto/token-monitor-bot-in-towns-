@@ -1,12 +1,23 @@
 # Towns Bot - Base Token Tracker
 
-A Towns Protocol bot that tracks top Base chain tokens using the DexScreener API.
+A Towns Protocol bot that tracks top Base chain tokens (GeckoTerminal) and lets users **buy tokens with confirmation** using their Towns wallet.
 
 ## Commands
 
-- `/p` - Get top 5 Base chain tokens by 24h volume
-- `/help` - Show available commands
-- Mention the bot - Get a quick response
+- **Lists:** `/trending` `/hot` `/rising` – top 10; `/top20` `/top50` `/hot20` `/hot50` – more
+- **Charts:** `/charts` `/hotcharts` – token cards
+- **Help:** `/help`
+
+## Buy with confirmation
+
+Mention the bot and say: **buy $50 of 0x…** (token contract address on Base).
+
+1. The bot replies with a **confirmation form** (Confirm / Cancel).
+2. You click **Confirm**.
+3. The bot sends a **transaction request** to your Towns wallet.
+4. You sign the swap in your wallet; tokens go to your linked wallet.
+
+Uses your **Towns in-app wallet** – you sign and pay; the bot never holds your funds.
 
 ## Setup
 

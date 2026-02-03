@@ -1,7 +1,9 @@
-import { makeTownsBot, type BotHandler } from '@towns-protocol/bot';
+import { makeTownsBot, type BotHandler, getSmartAccountFromUserId } from '@towns-protocol/bot';
 import commands from './commands';
 import { fetchTopBaseTokens, sortByTimeFrame, type TimeFrame } from './dexscreener';
 import { formatLeaderboard, formatSingleToken } from './formatter';
+import { parseBuyIntent } from './buyParser';
+import { getEthPriceUsd, buildSwapTx } from './swap';
 
 const APP_PRIVATE_DATA = process.env.APP_PRIVATE_DATA;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -16,6 +18,12 @@ if (!APP_PRIVATE_DATA || !JWT_SECRET) {
 const bot = await makeTownsBot(APP_PRIVATE_DATA, JWT_SECRET, {
   commands,
 });
+
+// Pending buy confirmations: formId -> { userId, channelId, amountUsd, tokenCa }
+const pendingBuys = new Map<
+  string,
+  { userId: string; channelId: string; amountUsd: number; tokenCa: `0x${string}` }
+>();
 
 // Helper function to handle token fetch and response
 async function handleTrendingCommand(
@@ -125,26 +133,141 @@ bot.onSlashCommand('help', async (handler: BotHandler, { channelId }) => {
   await handler.sendMessage(
     channelId,
     '**📊 Base Token Tracker Commands**\n\n' +
-      '**📋 List Commands:**\n' +
-      '• `/trending` - Top 10 tokens (24h)\n' +
-      '• `/hot` - Top 10 hottest (1h)\n' +
-      '• `/rising` - Top 10 rising (6h)\n' +
-      '• `/top20` `/top50` - More tokens\n' +
-      '• `/hot20` `/hot50` - More hot tokens\n\n' +
-      '**📈 Chart Commands:**\n' +
-      '• `/charts` - Top 5 with token cards (24h)\n' +
-      '• `/hotcharts` - Top 5 with token cards (1h)\n\n' +
-      '💡 *Chart commands show visual token info!*'
+      '**📋 List:** `/trending` `/hot` `/rising` `/top20` `/top50` `/hot20` `/hot50`\n\n' +
+      '**📈 Charts:** `/charts` `/hotcharts` – token cards\n\n' +
+      '**💰 Buy (with confirmation):**\n' +
+      'Mention the bot and say: *buy $50 of 0x...*\n' +
+      'You’ll get a confirmation form, then sign the swap in your Towns wallet.'
   );
 });
 
-// Respond to mentions
-bot.onMessage(async (handler: BotHandler, { message, channelId, isMentioned }) => {
-  if (isMentioned) {
+// Respond to mentions (including "buy $X of [CA]")
+bot.onMessage(async (handler: BotHandler, event) => {
+  const { message, channelId, isMentioned } = event;
+  const userId = (event as { userId?: string }).userId ?? (event as { creatorAddress?: string }).creatorAddress;
+  if (!isMentioned) return;
+
+  const buy = parseBuyIntent(message ?? '');
+  if (buy && userId) {
+    const formId = `buy-${Date.now()}-${userId}`;
+    pendingBuys.set(formId, {
+      userId,
+      channelId,
+      amountUsd: buy.amountUsd,
+      tokenCa: buy.tokenCa,
+    });
+    await (handler as { sendInteractionRequest?: (ch: string, payload: unknown) => Promise<unknown> }).sendInteractionRequest?.(
+      channelId,
+      {
+        type: 'form',
+        id: formId,
+        components: [
+          { id: 'confirm', type: 'button', label: '✅ Confirm' },
+          { id: 'cancel', type: 'button', label: '❌ Cancel' },
+        ],
+        recipient: userId,
+      }
+    );
     await handler.sendMessage(
       channelId,
-      'Hey! Try `/charts` for visual token info, or `/help` for all commands! 🚀'
+      `**Confirm buy**\nSpend **$${buy.amountUsd}** (in ETH) to buy token:\n\`${buy.tokenCa}\`\n\nReact to the form above: **Confirm** to sign the swap in your wallet, or **Cancel** to abort.`
     );
+    return;
+  }
+
+  await handler.sendMessage(
+    channelId,
+    'Hey! Try `/charts` or `/help`. To buy a token: *@me buy $50 of 0x...* (then confirm in the form). 🚀'
+  );
+});
+
+// Handle confirmation form and transaction result
+bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
+  const ev = event as {
+    userId: string;
+    channelId: string;
+    response?: { payload?: { content?: { case?: string; value?: unknown } } };
+  };
+  const content = ev.response?.payload?.content;
+  const caseType = content?.case;
+  const value = content?.value;
+
+  if (caseType === 'form' && value && typeof value === 'object' && 'id' in value) {
+    const form = value as { id: string; components?: Array<{ id: string; component?: { case?: string } }> };
+    const pending = pendingBuys.get(form.id);
+    if (!pending) return;
+    pendingBuys.delete(form.id);
+
+    const confirmed = form.components?.some((c) => c.id === 'confirm');
+    if (!confirmed) {
+      await handler.sendMessage(ev.channelId, '❌ Buy cancelled.');
+      return;
+    }
+
+    const walletRaw = await getSmartAccountFromUserId(bot, {
+      userId: ev.userId as `0x${string}`,
+    });
+    if (!walletRaw) {
+      await handler.sendMessage(
+        ev.channelId,
+        '❌ Link a wallet in Towns first (Settings → Wallet), then try again.'
+      );
+      return;
+    }
+    const wallet = walletRaw as `0x${string}`;
+
+    try {
+      const ethPriceUsd = await getEthPriceUsd();
+      const tx = buildSwapTx({
+        amountUsd: pending.amountUsd,
+        ethPriceUsd,
+        tokenCa: pending.tokenCa,
+        recipientAddress: wallet,
+      });
+      await (handler as { sendInteractionRequest?: (ch: string, payload: unknown) => Promise<unknown> }).sendInteractionRequest?.(
+        ev.channelId,
+        {
+          type: 'transaction',
+          id: `swap-${form.id}`,
+          title: 'Swap ETH for token',
+          subtitle: `Spend ~$${pending.amountUsd} in ETH → token ${pending.tokenCa.slice(0, 10)}...`,
+          tx: {
+            chainId: tx.chainId,
+            to: tx.to,
+            value: '0x' + tx.value.toString(16),
+            data: tx.data,
+            signerWallet: wallet,
+          },
+          recipient: ev.userId,
+        }
+      );
+      await handler.sendMessage(
+        ev.channelId,
+        '📤 **Sign the transaction** in your wallet to complete the buy. You’ll receive the tokens to your linked wallet.'
+      );
+    } catch (err) {
+      console.error('Buy flow error:', err);
+      await handler.sendMessage(
+        ev.channelId,
+        '❌ Could not prepare swap (e.g. ETH price fetch failed). Try again in a moment.'
+      );
+    }
+    return;
+  }
+
+  if (caseType === 'transaction' && value && typeof value === 'object') {
+    const txResult = value as { txHash?: string; error?: string };
+    if (txResult.txHash) {
+      await handler.sendMessage(
+        ev.channelId,
+        `✅ **Swap completed!**\nTx: \`${txResult.txHash}\``
+      );
+    } else if (txResult.error) {
+      await handler.sendMessage(
+        ev.channelId,
+        `❌ Swap failed: ${txResult.error}`
+      );
+    }
   }
 });
 
