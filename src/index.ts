@@ -306,6 +306,10 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
 // Start the bot
 const app = bot.start();
 
+// Health check for Render (GET / must return 200 or service may be killed)
+app.get('/', (c) => c.json({ status: 'ok', service: 'towns-token-bot' }, 200));
+app.get('/health', (c) => c.json({ status: 'ok' }, 200));
+
 app.get('/.well-known/agent-metadata.json', async (c) => {
   return c.json(await bot.getIdentityMetadata());
 });
