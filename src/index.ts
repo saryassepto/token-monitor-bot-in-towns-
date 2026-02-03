@@ -1,3 +1,4 @@
+import { Hono } from 'hono';
 import { makeTownsBot, type BotHandler, getSmartAccountFromUserId } from '@towns-protocol/bot';
 import commands from './commands';
 import { fetchTopBaseTokens, sortByTimeFrame, type TimeFrame } from './dexscreener';
@@ -303,16 +304,17 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
   }
 });
 
-// Start the bot
-const app = bot.start();
+// Start the bot (returns app with /webhook, etc.)
+const botApp = bot.start();
 
-// Health check for Render (GET / must return 200 or service may be killed)
+// Wrapper app: health routes first so Render GET / gets 200 (avoids SIGTERM)
+const app = new Hono();
 app.get('/', (c) => c.json({ status: 'ok', service: 'towns-token-bot' }, 200));
 app.get('/health', (c) => c.json({ status: 'ok' }, 200));
-
-app.get('/.well-known/agent-metadata.json', async (c) => {
-  return c.json(await bot.getIdentityMetadata());
-});
+app.get('/.well-known/agent-metadata.json', async (c) =>
+  c.json(await bot.getIdentityMetadata())
+);
+app.route('/', botApp);
 
 export default {
   port: PORT,
