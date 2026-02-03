@@ -170,7 +170,7 @@ bot.onMessage(async (handler: BotHandler, event) => {
     );
     await handler.sendMessage(
       channelId,
-      `**Confirm buy**\nSpend **$${buy.amountUsd}** (in ETH) to buy token:\n\`${buy.tokenCa}\`\n\nReact to the form above: **Confirm** to sign the swap in your wallet, or **Cancel** to abort.`
+      `**Confirm buy**\nSpend **$${buy.amountUsd}** (in ETH) to buy token:\n\`${buy.tokenCa}\`\n\n👆 Click **Confirm** above — then you’ll get a **sign request** in your Towns wallet to complete the swap. Click **Cancel** to abort.`
     );
     return;
   }
@@ -217,6 +217,12 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
     const wallet = walletRaw as `0x${string}`;
 
     try {
+      // Tell user immediately that a sign request is coming
+      await handler.sendMessage(
+        ev.channelId,
+        '⏳ **Preparing your swap…** You’ll get a **sign request** in your Towns wallet in a moment — approve it to complete the buy.'
+      );
+
       const ethPriceUsd = await getEthPriceUsd();
       const tx = buildSwapTx({
         amountUsd: pending.amountUsd,
@@ -224,9 +230,10 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
         tokenCa: pending.tokenCa,
         recipientAddress: wallet,
       });
-      await (handler as { sendInteractionRequest?: (ch: string, payload: unknown) => Promise<unknown> }).sendInteractionRequest?.(
-        ev.channelId,
-        {
+
+      const sendTx = (handler as { sendInteractionRequest?: (ch: string, payload: unknown) => Promise<unknown> }).sendInteractionRequest;
+      if (sendTx) {
+        await sendTx(ev.channelId, {
           type: 'transaction',
           id: `swap-${form.id}`,
           title: 'Swap ETH for token',
@@ -239,12 +246,14 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
             signerWallet: wallet,
           },
           recipient: ev.userId,
-        }
-      );
-      await handler.sendMessage(
-        ev.channelId,
-        '📤 **Sign the transaction** in your wallet to complete the buy. You’ll receive the tokens to your linked wallet.'
-      );
+        });
+        await handler.sendMessage(
+          ev.channelId,
+          '📤 **Sign the transaction** in your Towns wallet (check the wallet / notification) to complete the buy. Tokens will be sent to your linked wallet.'
+        );
+      } else {
+        await handler.sendMessage(ev.channelId, '❌ Transaction request is not available. Try again or use the app’s swap feature.');
+      }
     } catch (err) {
       console.error('Buy flow error:', err);
       await handler.sendMessage(
@@ -258,9 +267,10 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
   if (caseType === 'transaction' && value && typeof value === 'object') {
     const txResult = value as { txHash?: string; error?: string };
     if (txResult.txHash) {
+      const txUrl = `https://basescan.org/tx/${txResult.txHash}`;
       await handler.sendMessage(
         ev.channelId,
-        `✅ **Swap completed!**\nTx: \`${txResult.txHash}\``
+        `✅ **Swap submitted!**\n\n📊 **View progress:** [BaseScan](${txUrl})\n\nYou can watch the tx (pending → confirmed) and see when tokens arrive in your wallet.`
       );
     } else if (txResult.error) {
       await handler.sendMessage(
