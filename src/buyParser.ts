@@ -1,12 +1,9 @@
 /**
- * Parse "buy $X of [CA]" from a message.
- * Matches patterns like:
- *   buy $50 of 0x...
- *   buy $100 of 0x...
- *   hey @bot buy $25 of 0x1234...
+ * Parse "buy $X of [CA]" or "buy X$ of [CA]" from a message.
+ * Matches: buy $50 of 0x..., buy 2$ of 0x..., buy 50 of 0x...
  */
 const BUY_PATTERN =
-  /buy\s+\$?\s*([\d.,]+)\s+of\s+(0x[a-fA-F0-9]{40})\b/i;
+  /buy\s+\$?([\d.,]+)\$?\s+of\s+(0x[a-fA-F0-9]{40})\b/i;
 
 export interface BuyIntent {
   amountUsd: number;

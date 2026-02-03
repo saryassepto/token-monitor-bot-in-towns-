@@ -192,7 +192,7 @@ bot.onMessage(async (handler: BotHandler, event) => {
 
   await handler.sendMessage(
     channelId,
-    'Hey! Try `/charts` or `/help`. To buy a token: *@me buy $50 of 0x...* (then confirm in the form). 🚀'
+    'To buy a token: *@me buy $50 of 0x...* (then confirm in the form). Use `/help` for other commands.'
   );
 });
 
