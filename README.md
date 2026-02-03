@@ -68,7 +68,27 @@ bun run dev
 1. **Health Check Path** in Render → your service → Settings must match an endpoint that returns 200: use `/`, `/health`, or `/healthz` (this app supports all three).  
 2. If you see SIGTERM right after a new deploy, that’s normal: Render replaces the old instance with the new one.  
 3. To confirm it’s deploy-related: turn off **Auto-Deploy** (Settings → Build & Deploy), don’t push for 10+ minutes, and see if SIGTERM stops.  
-4. If it still happens with no new deploy, contact [Render support](https://render.com/support) and mention: Starter plan, health path returns 200, instance gets SIGTERM after ~1 min.
+4. If it still happens with no new deploy, try one of the options below.
+
+**Option A – Run as Docker on Render (often fixes SIGTERM):**  
+This repo includes a `Dockerfile`. In Render Dashboard → your service → **Settings**:
+- Change **Runtime** from *Node* to **Docker**.
+- Remove **Build Command** (Docker builds the image).
+- Leave **Start Command** empty (the Dockerfile `CMD` runs the app).
+- Set **Health Check Path** to `/`.
+- Save and trigger a **Manual Deploy**.  
+Docker runs the app as the main process in the container, which can stop Render from sending SIGTERM the same way.
+
+**Option B – Deploy on Railway instead:**  
+1. Go to [railway.app](https://railway.app), sign in with GitHub.  
+2. **New Project** → **Deploy from GitHub repo** → select this repo.  
+3. Add env vars: `APP_PRIVATE_DATA`, `JWT_SECRET`, `PORT` (e.g. `5123`).  
+4. Railway will detect the Dockerfile (or Node) and deploy.  
+5. Use the generated URL in Towns: `https://your-app.up.railway.app/webhook`.  
+Railway’s process model often avoids the Render SIGTERM behavior.
+
+**Option C – Contact Render:**  
+If you prefer to stay on Render without Docker, contact [Render support](https://render.com/support): Starter plan, health path `/` returns 200, Auto-Deploy off, instance still gets SIGTERM after ~1 min.
 
 ## Configure Webhook
 
