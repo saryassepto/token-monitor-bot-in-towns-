@@ -55,11 +55,14 @@ bun run dev
 4. Configure:
    - **Build Command:** `bun install`
    - **Start Command:** `bun run start`
+   - **Health Check Path:** `/` (or leave default; `render.yaml` sets it)
 5. Add environment variables:
    - `APP_PRIVATE_DATA`
    - `JWT_SECRET`
    - `PORT` = `5123`
 6. Deploy!
+
+**Free tier:** The service may spin down after ~15 min of no traffic; the first request after that can take 30–60 s. To keep it warm, use an uptime monitor (e.g. [UptimeRobot](https://uptimerobot.com)) to ping `https://your-app.onrender.com/` every 5 minutes.
 
 ## Configure Webhook
 
