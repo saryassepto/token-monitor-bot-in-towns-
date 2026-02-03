@@ -318,10 +318,11 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
 // Start the bot (returns app with /webhook, etc.)
 const botApp = bot.start();
 
-// Wrapper app: health routes first so Render GET / gets 200 (avoids SIGTERM)
+// Wrapper app: health routes first so Render health check gets 200 (avoids SIGTERM)
 const app = new Hono();
 app.get('/', (c) => c.json({ status: 'ok', service: 'towns-token-bot' }, 200));
 app.get('/health', (c) => c.json({ status: 'ok' }, 200));
+app.get('/healthz', (c) => c.json({ status: 'ok' }, 200)); // Render default health path
 app.get('/.well-known/agent-metadata.json', async (c) =>
   c.json(await bot.getIdentityMetadata())
 );
