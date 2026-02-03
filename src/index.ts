@@ -4,6 +4,7 @@ import { fetchTopBaseTokens, sortByTimeFrame, type TimeFrame } from './dexscreen
 import { formatLeaderboard, formatSingleToken } from './formatter';
 import { parseBuyIntent } from './buyParser';
 import { getEthPriceUsd, buildSwapTx } from './swap';
+import { getTokenInfoByAddress } from './tokenInfo';
 
 const APP_PRIVATE_DATA = process.env.APP_PRIVATE_DATA;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -19,10 +20,17 @@ const bot = await makeTownsBot(APP_PRIVATE_DATA, JWT_SECRET, {
   commands,
 });
 
-// Pending buy confirmations: formId -> { userId, channelId, amountUsd, tokenCa }
+// Pending buy confirmations: formId -> { userId, channelId, amountUsd, tokenCa, tokenSymbol?, tokenName? }
 const pendingBuys = new Map<
   string,
-  { userId: string; channelId: string; amountUsd: number; tokenCa: `0x${string}` }
+  {
+    userId: string;
+    channelId: string;
+    amountUsd: number;
+    tokenCa: `0x${string}`;
+    tokenSymbol?: string;
+    tokenName?: string;
+  }
 >();
 
 // Helper function to handle token fetch and response
@@ -150,11 +158,14 @@ bot.onMessage(async (handler: BotHandler, event) => {
   const buy = parseBuyIntent(message ?? '');
   if (buy && userId) {
     const formId = `buy-${Date.now()}-${userId}`;
+    const tokenInfo = await getTokenInfoByAddress(buy.tokenCa);
     pendingBuys.set(formId, {
       userId,
       channelId,
       amountUsd: buy.amountUsd,
       tokenCa: buy.tokenCa,
+      tokenSymbol: tokenInfo?.symbol,
+      tokenName: tokenInfo?.name,
     });
     await (handler as { sendInteractionRequest?: (ch: string, payload: unknown) => Promise<unknown> }).sendInteractionRequest?.(
       channelId,
@@ -168,9 +179,13 @@ bot.onMessage(async (handler: BotHandler, event) => {
         recipient: userId,
       }
     );
+    const tokenLabel =
+      tokenInfo ?
+        `**${tokenInfo.name} ($${tokenInfo.symbol})**`
+      : 'token';
     await handler.sendMessage(
       channelId,
-      `**Confirm buy**\nSpend **$${buy.amountUsd}** (in ETH) to buy token:\n\`${buy.tokenCa}\`\n\n👆 Click **Confirm** above — then you’ll get a **sign request** in your Towns wallet to complete the swap. Click **Cancel** to abort.`
+      `**Confirm buy**\nSpend **$${buy.amountUsd}** (in ETH) to buy ${tokenLabel}\n\`${buy.tokenCa}\`\n\n👆 Click **Confirm** above — then you’ll get a **sign request** in your Towns wallet to complete the swap. Click **Cancel** to abort.`
     );
     return;
   }
@@ -233,11 +248,14 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
 
       const sendTx = (handler as { sendInteractionRequest?: (ch: string, payload: unknown) => Promise<unknown> }).sendInteractionRequest;
       if (sendTx) {
+        const txSubtitleToken = pending.tokenSymbol
+          ? `$${pending.tokenSymbol}`
+          : `token ${pending.tokenCa.slice(0, 10)}...`;
         await sendTx(ev.channelId, {
           type: 'transaction',
           id: `swap-${form.id}`,
           title: 'Swap ETH for token',
-          subtitle: `Spend ~$${pending.amountUsd} in ETH → token ${pending.tokenCa.slice(0, 10)}...`,
+          subtitle: `Spend ~$${pending.amountUsd} in ETH → ${txSubtitleToken}`,
           tx: {
             chainId: tx.chainId,
             to: tx.to,
@@ -247,9 +265,13 @@ bot.onInteractionResponse?.(async (handler: BotHandler, event: unknown) => {
           },
           recipient: ev.userId,
         });
+        const signMsgToken =
+          pending.tokenSymbol && pending.tokenName
+            ? ` **${pending.tokenName} ($${pending.tokenSymbol})**`
+            : '';
         await handler.sendMessage(
           ev.channelId,
-          '📤 **Sign the transaction** in your Towns wallet (check the wallet / notification) to complete the buy. Tokens will be sent to your linked wallet.'
+          `📤 **Sign the transaction** in your Towns wallet (check the wallet / notification) to complete the buy.${signMsgToken} Tokens will be sent to your linked wallet.`
         );
       } else {
         await handler.sendMessage(ev.channelId, '❌ Transaction request is not available. Try again or use the app’s swap feature.');
