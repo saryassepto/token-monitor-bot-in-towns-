@@ -64,6 +64,12 @@ bun run dev
 
 **Free tier:** The service may spin down after ~15 min of no traffic; the first request after that can take 30–60 s. To keep it warm, use an uptime monitor (e.g. [UptimeRobot](https://uptimerobot.com)) to ping `https://your-app.onrender.com/` every 5 minutes.
 
+**"Script terminated by SIGTERM" on Starter:**  
+1. **Health Check Path** in Render → your service → Settings must match an endpoint that returns 200: use `/`, `/health`, or `/healthz` (this app supports all three).  
+2. If you see SIGTERM right after a new deploy, that’s normal: Render replaces the old instance with the new one.  
+3. To confirm it’s deploy-related: turn off **Auto-Deploy** (Settings → Build & Deploy), don’t push for 10+ minutes, and see if SIGTERM stops.  
+4. If it still happens with no new deploy, contact [Render support](https://render.com/support) and mention: Starter plan, health path returns 200, instance gets SIGTERM after ~1 min.
+
 ## Configure Webhook
 
 After deployment, go to [Towns Developer Portal](https://towns.com/developer):
